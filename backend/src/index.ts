@@ -12,7 +12,8 @@ import { errorHandler } from "./middleware/error";
 import authRouter from "./routes/auth"
 import chatRouter from "./routes/chat"
 import userRouter from "./routes/user"
-import { saveMessageToDb, getMessagesBetweenTwoUsers } from "./sockets/chat.socket";
+import { saveMessageToDb } from "./sockets/chat.socket";
+import { CHAT_MESSAGE, CONNECT, DISCONNECT, JOIN_ROOM, RECEIVE_MESSAGE, USER_JOINED, USER_TYPING, USER_TYPING_STATUS } from "./constants/events";
 
 dotenv.config();
 
@@ -52,30 +53,29 @@ function generateRoomId(userId1: string, userId2: string) {
   return sortedIds.join("_");
 }
 
-io.on('connection', (socket) => {
+io.on(CONNECT, (socket) => {
   console.log('A client connected', socket.id);
 
-  socket.on('disconnect', () => {
+  socket.on(DISCONNECT, () => {
     console.log('A client disconnected');
   });
 
-  socket.on('joinRoom', ({ senderId, receiverId }) => {
+  socket.on(JOIN_ROOM, ({ senderId, receiverId }) => {
     const roomId = generateRoomId(senderId, receiverId); // Generate a unique room ID
     socket.join(roomId);
     console.log(`Socket ${socket.id} joined room ${roomId}`);
-
-    io.emit("user-joined", roomId)
+    io.emit(USER_JOINED, roomId)
   });
 
-  socket.on("chat message", async (data) => {
+  socket.on(CHAT_MESSAGE, async (data) => {
     const message = await saveMessageToDb(data);
     const roomId = generateRoomId(data.senderId, data.receiverId); // Generate the room ID based on sender and receiver IDs
-    io.to(roomId).emit("receive message", message);
+    io.to(roomId).emit(RECEIVE_MESSAGE, message);
   });
 
-  socket.on('user-typing', ({ roomId, isTyping }) => {
+  socket.on(USER_TYPING, ({ roomId, isTyping }) => {
     console.log(`Socket ${socket.id} is typing: ${isTyping}`);
-    socket.broadcast.to(roomId).emit('user-typing-status', { isTyping });
+    socket.broadcast.to(roomId).emit(USER_TYPING_STATUS, { isTyping });
   });
 });
 
