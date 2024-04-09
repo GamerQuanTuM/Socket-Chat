@@ -24,7 +24,9 @@ export default function Messages({ interactingUserId }: Props) {
   const socket = useSocket();
   const [messages, setMessages] = useState<Chat[]>([])
   const [sender, setSender] = useState<User | null>(null)
-  const [inputMessage, setInputMessage] = useState<string>("")
+  const [inputMessage, setInputMessage] = useState<string>("");
+
+  const [roomId, setRoomId] = useState("")
 
   const [isTyping, setIsTyping] = useState(false);
   const [otherUserIsTyping, setOtherUserIsTyping] = useState(false);
@@ -43,10 +45,18 @@ export default function Messages({ interactingUserId }: Props) {
   const uuid = generateId()
 
   useEffect(() => {
-    socket?.emit("join-room", "123");
+    if (interactingUserId) {
+      // Join the room corresponding to the conversation between current user and interacting user
+      socket?.emit('joinRoom', { senderId: user?.id, receiverId: interactingUserId });
+    }
+
+    socket?.on("user-joined", (roomId) => {
+      setRoomId(roomId);
+      console.log(`User joined ${roomId}`)
+    })
 
     socket?.on('user-typing-status', (data) => {
-      console.log(data.isTyping)
+      console.log("User is typing : ",data.isTyping)
       setOtherUserIsTyping(data.isTyping);
     });
   }, [socket])
@@ -54,7 +64,7 @@ export default function Messages({ interactingUserId }: Props) {
   const handleKeyDown = () => {
     if (!isTyping) {
       setIsTyping(true);
-      socket?.emit('user-typing', { roomId: "123", isTyping: true });
+      socket?.emit('user-typing', { roomId, isTyping: true });
     }
     clearTimeout(typingTimeout.current);
   };
@@ -63,7 +73,7 @@ export default function Messages({ interactingUserId }: Props) {
     clearTimeout(typingTimeout.current);
     typingTimeout.current = setTimeout(() => {
       setIsTyping(false);
-      socket?.emit('user-typing', { roomId: "123", isTyping: false });
+      socket?.emit('user-typing', { roomId, isTyping: false });
     }, 2000); // Adjust the delay as needed
   };
 
@@ -96,15 +106,22 @@ export default function Messages({ interactingUserId }: Props) {
     fetchUserDetails()
   }, [interactingUserId])
 
+  useEffect(() => {
+    if (interactingUserId) {
+      // Join the room corresponding to the conversation between current user and interacting user
+      socket?.emit('joinRoom', { senderId: user?.id, receiverId: interactingUserId });
+    }
+  }, [interactingUserId, socket, user?.id]);
+
   const handleClick = () => {
-    socket?.emit("chat message", { message: inputMessage, userId: user?.id, interactingUserId })
-  }
+    if (!inputMessage.trim()) return; // Don't send empty messages
+    socket?.emit("chat message", { message: inputMessage, senderId: user?.id, receiverId: interactingUserId });
+    setInputMessage(""); // Clear input field after sending message
+  };
 
   useEffect(() => {
     const handleReceiveMessage = (data: Chat) => {
-      console.log(data)
       setMessages((prev) => [...prev, data]);
-      setInputMessage("");
       setTimeout(() => {
         if (lastMessageRef.current) {
           lastMessageRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -118,7 +135,6 @@ export default function Messages({ interactingUserId }: Props) {
       socket?.off("receive message", handleReceiveMessage);
     };
   }, [socket, interactingUserId]);
-
   useEffect(() => {
     // Scroll to typing indicator when other user is typing
     if (otherUserIsTyping && typingIndicatorRef.current) {

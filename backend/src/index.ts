@@ -46,6 +46,12 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Express + TypeScript Server");
 });
 
+function generateRoomId(userId1: string, userId2: string) {
+  // Sort the user IDs to ensure consistency in generating the room ID
+  const sortedIds = [userId1, userId2].sort();
+  return sortedIds.join("_");
+}
+
 io.on('connection', (socket) => {
   console.log('A client connected', socket.id);
 
@@ -53,15 +59,18 @@ io.on('connection', (socket) => {
     console.log('A client disconnected');
   });
 
-  socket.on("chat message", async (data: { message: string, userId: string, interactingUserId: string }) => {
-    const message = await saveMessageToDb(data)
-    io.emit("receive message", message)
-  })
-
-
-  socket.on('join-room', async (roomId) => {
-    socket.join(roomId)
+  socket.on('joinRoom', ({ senderId, receiverId }) => {
+    const roomId = generateRoomId(senderId, receiverId); // Generate a unique room ID
+    socket.join(roomId);
     console.log(`Socket ${socket.id} joined room ${roomId}`);
+
+    io.emit("user-joined", roomId)
+  });
+
+  socket.on("chat message", async (data) => {
+    const message = await saveMessageToDb(data);
+    const roomId = generateRoomId(data.senderId, data.receiverId); // Generate the room ID based on sender and receiver IDs
+    io.to(roomId).emit("receive message", message);
   });
 
   socket.on('user-typing', ({ roomId, isTyping }) => {

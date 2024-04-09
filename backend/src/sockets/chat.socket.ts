@@ -1,7 +1,8 @@
 import { CustomError } from "../middleware/error"
 import prismadb from "../lib/prismadb"
 
-export const saveMessageToDb = async (data: { message: string, userId: string, interactingUserId: string }) => {
+export const saveMessageToDb = async (data: { message: string, senderId: string, receiverId: string }) => {
+    console.log(data)
     try {
         if (!data) {
             return
@@ -9,8 +10,8 @@ export const saveMessageToDb = async (data: { message: string, userId: string, i
         const saveChats = await prismadb.chat.create({
             data: {
                 message: data.message,
-                senderId: data.userId,
-                receiverId: data.interactingUserId
+                senderId: data.senderId,
+                receiverId: data.receiverId
             }
         })
 
