@@ -95,12 +95,6 @@ export default function Messages({ interactingUserId }: Props) {
     fetchUserDetails()
   }, [interactingUserId])
 
-  useEffect(() => {
-    if (interactingUserId) {
-      // Join the room corresponding to the conversation between current user and interacting user
-      socket?.emit('joinRoom', { senderId: user?.id, receiverId: interactingUserId });
-    }
-  }, [interactingUserId, socket, user?.id]);
 
   const handleClick = () => {
     if (!inputMessage.trim()) return; // Don't send empty messages
